@@ -1,5 +1,6 @@
 package com.yuong.progressbar;
 
+import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -9,24 +10,55 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
+import android.view.animation.AccelerateDecelerateInterpolator;
+
 
 public class MyProgressBar extends View {
 
-    private Paint mPaintProgress;//进度条
-    private Paint mPaintProgressStr;//进度数
-    private Paint mPaintProgressImg;//进度图片
-    private Paint mPaintBubble;//气泡
-    private Paint mPaintTriangle;//三角
+    /**
+     * paint
+     */
+    private Paint mProgressPaint;
+    private Paint mProgressStrPaint;
+    private Paint mProgressImgPaint;
+    private Paint mBubblePaint;
+    private Paint mTrianglePaint;
 
-    private int mProgressPaintWidth = 25;//进度条的高度
+    /**
+     * progressbar
+     */
+    private float mProgressBarX;
+    private float mProgressBarY;
+    private int mProgressPaintWidth = 25;
 
+    /**
+     * image
+     */
     private Bitmap mProgressImg;
-    private int mImgTargetSize = mProgressPaintWidth * 2;//图片是进度条宽度的2倍
-    private int mBubbleHeight = mProgressPaintWidth * 3;//汽泡是进度条宽度的3倍
+    private int mImgTargetSize;
 
+    /**
+     * bubble
+     */
+    private int mBubbleHeight;
+    private float mRectHeight;
+    private float mRectWidth;
+    private float mTriangleHeight;
+    private float mRectY;
+    private float mTriangleY;
+
+
+    private int mWidth;
+    private int mHeight;
+    private int mHorizontalPadding = 10;
+    private int mVerticalPadding = 100;
+
+    private float mProgress;
+    private String mProgressStr;
 
     public MyProgressBar(Context context) {
         this(context, null);
@@ -43,37 +75,60 @@ public class MyProgressBar extends View {
 
     //initialize
     private void init() {
-        mPaintProgress = new Paint(Paint.ANTI_ALIAS_FLAG);
-        mPaintProgress.setStrokeCap(Paint.Cap.ROUND);
-        mPaintProgress.setStyle(Paint.Style.STROKE);
-        mPaintProgress.setStrokeWidth(mProgressPaintWidth);
+        mProgressPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mProgressPaint.setStrokeCap(Paint.Cap.ROUND);
+        mProgressPaint.setStyle(Paint.Style.STROKE);
+        mProgressPaint.setDither(true);
+        mProgressPaint.setStrokeWidth(mProgressPaintWidth);
 
-        mPaintProgressImg = new Paint(Paint.ANTI_ALIAS_FLAG);
-        //mPaintProgressImg.setStrokeCap(Paint.Cap.ROUND);
-        //mPaintProgressImg.setStyle(Paint.Style.STROKE);
-        //mPaintProgressImg.setStrokeWidth(mProgressPaintWidth);
+        mProgressImgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-        mPaintBubble = new Paint(Paint.ANTI_ALIAS_FLAG);
-        mPaintBubble.setStrokeCap(Paint.Cap.ROUND);
-        mPaintBubble.setStyle(Paint.Style.STROKE);
-        mPaintBubble.setColor(Color.parseColor("#F86F41"));
+        mBubblePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mBubblePaint.setStrokeCap(Paint.Cap.ROUND);
+        mBubblePaint.setStyle(Paint.Style.STROKE);
+        mBubblePaint.setColor(Color.parseColor("#F86F41"));
 
-        mPaintTriangle = new Paint(Paint.ANTI_ALIAS_FLAG);
-        mPaintTriangle.setColor(Color.parseColor("#F86F41"));
+        mTrianglePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mTrianglePaint.setColor(Color.parseColor("#F86F41"));
 
+        mProgressStrPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mProgressStrPaint.setStyle(Paint.Style.STROKE);
+        mProgressStrPaint.setColor(Color.parseColor("#ffffff"));
+        mProgressStrPaint.setTextAlign(Paint.Align.CENTER);
 
-        mPaintProgressStr = new Paint(Paint.ANTI_ALIAS_FLAG);
-        mPaintProgressStr.setStyle(Paint.Style.STROKE);
-        mPaintProgressStr.setColor(Color.parseColor("#ffffff"));
-        //mPaintProgressStr.setTextSize(mTextSize);//设置字体大小
-        mPaintProgressStr.setTextAlign(Paint.Align.CENTER);//将文字水平居中
+        initViewHeight();
 
         mProgressImg = measureImgSize(mImgTargetSize);
+    }
+
+
+    private void initViewHeight() {
+        /**
+         * 图片的高度是进度条宽度的2倍
+         * 汽泡的高度是进度条宽度的3倍
+         * 气泡分两部分：一部分为圆角矩形、一部分为三角形(高度比例：0.83、0.17)
+         *气泡的宽度是进度条宽度的3倍
+         * 三角箭头到图片的距离为进度条宽度的0.65
+         */
+        mImgTargetSize = mProgressPaintWidth * 2;
+        mBubbleHeight = mProgressPaintWidth * 3;
+        mRectHeight = mBubbleHeight * 0.83f;
+        mRectWidth = mBubbleHeight * 2.5f;
+        mTriangleHeight = mBubbleHeight - mRectHeight;
+        float mImgMarginTop = mProgressPaintWidth * 0.65f;
+
+        mHeight = (int) (mVerticalPadding * 2f + mProgressPaintWidth + mBubbleHeight + mImgMarginTop);
+        mProgressBarY = mVerticalPadding + mProgressPaintWidth * 0.5f + mBubbleHeight + mImgMarginTop;
+        mRectY = mProgressBarY - mProgressPaintWidth * 0.5f - mImgMarginTop - mTriangleHeight - mRectHeight * 0.5f;
+        mTriangleY = mProgressBarY - mProgressPaintWidth * 0.5f - mImgMarginTop - mTriangleHeight;
     }
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        mWidth = MeasureSpec.getSize(widthMeasureSpec);
+        // setMeasuredDimension(mWidth, MeasureSpec.getSize(heightMeasureSpec));
+        setMeasuredDimension(mWidth, mHeight);
     }
 
     @Override
@@ -84,55 +139,52 @@ public class MyProgressBar extends View {
     }
 
     private void drawProgress(Canvas canvas) {
-        //绘制进度条背景
-        mPaintProgress.setColor(Color.parseColor("#FFEFDB"));
-        canvas.drawLine(20, 400, 620, 400, mPaintProgress);
-        //绘制进度条
-        mPaintProgress.setColor(Color.parseColor("#F86F41"));
-        canvas.drawLine(20, 400, 220, 400, mPaintProgress);
-        //绘制图片
-        canvas.drawBitmap(mProgressImg, 220 - mImgTargetSize * 0.5f, 400 - mImgTargetSize * 0.5f, mPaintProgressImg);
+        float padding = mHorizontalPadding + mRectWidth * 0.5f;
+        //draw  progress bar background
+        mProgressPaint.setColor(Color.parseColor("#FFEFDB"));
+        canvas.drawLine(padding, mProgressBarY, mWidth - padding, mProgressBarY, mProgressPaint);
+        //draw progress bar
+        mProgressPaint.setColor(Color.parseColor("#F86F41"));
+        float realLength = getRealProgressLength(mProgress);
+        mProgressBarX = padding + realLength;
+        canvas.drawLine(padding, mProgressBarY, mProgressBarX, mProgressBarY, mProgressPaint);
+        //draw  picture
+        canvas.drawBitmap(mProgressImg, mProgressBarX - mImgTargetSize * 0.5f, mProgressBarY - mImgTargetSize * 0.5f, mProgressImgPaint);
     }
 
 
     private void drawBubble(Canvas canvas) {
+        if (TextUtils.isEmpty(mProgressStr)) {
+            return;
+        }
+        //draw bubble
+        mBubblePaint.setStrokeWidth(mRectHeight);
+        canvas.drawLine(mProgressBarX - mRectWidth * 0.5f + mRectHeight * 0.5f, mRectY, mProgressBarX + mRectWidth * 0.5f - mRectHeight * 0.5f, mRectY, mBubblePaint);
 
-        /**
-         * 气泡分两部分：一部分为圆角矩形、一部分为三角形
-         * 高度比例：0.83、0.17
-         */
-        float rectHeight = mBubbleHeight * 0.83f;
-        float rectWidth = mBubbleHeight * 2.5f;
-        float triangleHeight = mBubbleHeight - rectHeight;
-
-        mPaintBubble.setStrokeWidth(rectHeight);
-
-        float baseY = 400 - mProgressPaintWidth*0.65f - mProgressPaintWidth * 0.5f - triangleHeight - rectHeight * 0.5f;
-        Log.e("MyProgress", "base111111 : " + (baseY + rectHeight * 0.5f));
-        float base2 = 400 - mProgressPaintWidth*0.65f - mProgressPaintWidth * 0.5f - triangleHeight;
-        Log.e("MyProgress", "base222222 : " + base2);
-        //绘制气泡矩形
-        canvas.drawLine(220 - rectWidth * 0.5f + rectHeight * 0.5f, baseY, 220 + rectWidth * 0.5f - rectHeight * 0.5f, baseY, mPaintBubble);
-
-        //绘制气泡三角形
-        float triangleWidth = (float) (triangleHeight * Math.tan(Math.toRadians(30)));
+        //draw triangle
+        float triangleWidth = (float) (mTriangleHeight * Math.tan(Math.toRadians(30)));
         Path path = new Path();
-        path.moveTo(220 - triangleWidth, (int) base2);
-        path.lineTo(220 + triangleWidth, (int) base2);
-        path.lineTo(220, base2 + triangleHeight);
-        path.close(); // 使这些点构成封闭的多边形
-        canvas.drawPath(path, mPaintTriangle);
+        path.moveTo(mProgressBarX - triangleWidth, (int) mTriangleY);
+        path.lineTo(mProgressBarX + triangleWidth, (int) mTriangleY);
+        path.lineTo(mProgressBarX, mTriangleY + mTriangleHeight);
+        path.close();
+        canvas.drawPath(path, mTrianglePaint);
 
-        //绘制文字
-        mPaintProgressStr.setTextSize(rectHeight / 2);
-        String text = "3500";
-        int textHeight = measureTextHeight(text, mPaintProgressStr);
-        canvas.drawText("3500", 220, baseY + textHeight * 0.5f, mPaintProgressStr);
-
+        //draw txt
+        mProgressStrPaint.setTextSize(mRectHeight / 2);
+        if (!TextUtils.isEmpty(mProgressStr)) {
+            int textHeight = measureTextHeight(mProgressStr, mProgressStrPaint);
+            canvas.drawText(mProgressStr, mProgressBarX, mRectY + textHeight * 0.5f, mProgressStrPaint);
+        }
     }
 
 
-    //图片转化为目标的大小
+    /**
+     * image converted to target size
+     *
+     * @param targetSize
+     * @return
+     */
     private Bitmap measureImgSize(float targetSize) {
         Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.icon_progress);
         Matrix matrix = new Matrix();
@@ -142,12 +194,50 @@ public class MyProgressBar extends View {
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
     }
 
-    //获取文本的高度
+    /**
+     * Get the height of the text
+     *
+     * @param text
+     * @param paint
+     * @return
+     */
     private int measureTextHeight(String text, Paint paint) {
         Rect rect = new Rect();
         paint.getTextBounds(text, 0, text.length(), rect);
         //int width = rect.width();
         return rect.height();
     }
+
+
+    private float getRealProgressLength(float currentProgress) {
+        int totalLength = (int) (mWidth - 2 * mHorizontalPadding - mRectWidth);
+        //TODO 根据实际项目，设置进度条的相对范围
+        /**
+         * 进度条范围：0 ~ 100
+         */
+        return currentProgress * totalLength * 0.01f;
+    }
+
+    /**
+     * set progress
+     *
+     * @param progress
+     */
+    public void setProgress(float progress) {
+        mProgress = progress;
+        mProgressStr = (int) (progress) + "%";
+        invalidate();
+    }
+
+    /**
+     * set animation progress
+     */
+    public void setProgressWithAnim(float progress) {
+        ObjectAnimator animator = ObjectAnimator.ofFloat(this, "progress", 0, progress);
+        animator.setDuration(1000);
+        animator.setInterpolator(new AccelerateDecelerateInterpolator());
+        animator.start();
+    }
+
 
 }
