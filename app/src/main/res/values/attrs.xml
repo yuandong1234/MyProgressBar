@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <declare-styleable name="MyProgressBar">
+        <attr name="horizontal_padding" format="dimension" />
+        <attr name="vertical_padding" format="dimension" />
+        <attr name="progressbar_width" format="dimension" />
+        <attr name="progressbar_background_color" format="color|reference" />
+        <attr name="progressbar_color" format="color|reference" />
+        <attr name="progressbar_text_color" format="color|reference" />
+        <attr name="progressbar_icon" format="reference" />
+    </declare-styleable>
+
+</resources>

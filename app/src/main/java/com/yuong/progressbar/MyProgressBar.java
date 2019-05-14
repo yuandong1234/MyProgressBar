@@ -2,6 +2,7 @@ package com.yuong.progressbar;
 
 import android.animation.ObjectAnimator;
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -12,7 +13,7 @@ import android.graphics.Path;
 import android.graphics.Rect;
 import android.text.TextUtils;
 import android.util.AttributeSet;
-import android.util.Log;
+import android.util.TypedValue;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
 
@@ -27,19 +28,23 @@ public class MyProgressBar extends View {
     private Paint mProgressImgPaint;
     private Paint mBubblePaint;
     private Paint mTrianglePaint;
+    private int mProgressBarColor;
+    private int mProgressBarBackgroundColor;
+    private int mProgressBarTextColor;
 
     /**
      * progressbar
      */
     private float mProgressBarX;
     private float mProgressBarY;
-    private int mProgressPaintWidth = 25;
+    private int mProgressPaintWidth;
 
     /**
      * image
      */
     private Bitmap mProgressImg;
     private int mImgTargetSize;
+    private int mProgressBarIcon;
 
     /**
      * bubble
@@ -54,8 +59,8 @@ public class MyProgressBar extends View {
 
     private int mWidth;
     private int mHeight;
-    private int mHorizontalPadding = 10;
-    private int mVerticalPadding = 100;
+    private float mHorizontalPadding;
+    private float mVerticalPadding;
 
     private float mProgress;
     private String mProgressStr;
@@ -70,11 +75,14 @@ public class MyProgressBar extends View {
 
     public MyProgressBar(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        init();
+        init(context, attrs);
     }
 
     //initialize
-    private void init() {
+    private void init(Context context, AttributeSet attrs) {
+
+        initAttrs(context, attrs);
+
         mProgressPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mProgressPaint.setStrokeCap(Paint.Cap.ROUND);
         mProgressPaint.setStyle(Paint.Style.STROKE);
@@ -86,28 +94,45 @@ public class MyProgressBar extends View {
         mBubblePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mBubblePaint.setStrokeCap(Paint.Cap.ROUND);
         mBubblePaint.setStyle(Paint.Style.STROKE);
-        mBubblePaint.setColor(Color.parseColor("#F86F41"));
+        mBubblePaint.setColor(mProgressBarColor);
 
         mTrianglePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        mTrianglePaint.setColor(Color.parseColor("#F86F41"));
+        mTrianglePaint.setColor(mProgressBarColor);
 
         mProgressStrPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mProgressStrPaint.setStyle(Paint.Style.STROKE);
-        mProgressStrPaint.setColor(Color.parseColor("#ffffff"));
+        mProgressStrPaint.setColor(mProgressBarTextColor);
         mProgressStrPaint.setTextAlign(Paint.Align.CENTER);
 
-        initViewHeight();
+        initViewSize();
+    }
 
-        mProgressImg = measureImgSize(mImgTargetSize);
+    //get custom view attributes
+    private void initAttrs(Context context, AttributeSet attrs) {
+
+        TypedArray typedArray = context.obtainStyledAttributes(attrs, R.styleable.MyProgressBar);
+
+        float horizontalPadding = typedArray.getDimension(R.styleable.MyProgressBar_horizontal_padding, 10);
+        float verticalPadding = typedArray.getDimension(R.styleable.MyProgressBar_vertical_padding, 10);
+        float progressbarWidth = typedArray.getDimension(R.styleable.MyProgressBar_progressbar_width, 8);
+        mProgressBarColor = typedArray.getColor(R.styleable.MyProgressBar_progressbar_color, Color.parseColor("#F86F41"));
+        mProgressBarBackgroundColor = typedArray.getColor(R.styleable.MyProgressBar_progressbar_background_color, Color.parseColor("#FFEFDB"));
+        mProgressBarTextColor = typedArray.getColor(R.styleable.MyProgressBar_progressbar_text_color, Color.WHITE);
+        mProgressBarIcon = typedArray.getResourceId(R.styleable.MyProgressBar_progressbar_icon, 0);
+
+        mProgressPaintWidth = dp2px(context, progressbarWidth);
+        mHorizontalPadding = dp2px(context, horizontalPadding);
+        mVerticalPadding = dp2px(context, verticalPadding);
+        typedArray.recycle();
     }
 
 
-    private void initViewHeight() {
+    private void initViewSize() {
         /**
          * 图片的高度是进度条宽度的2倍
-         * 汽泡的高度是进度条宽度的3倍
+         * 气泡的高度是进度条宽度的3倍
          * 气泡分两部分：一部分为圆角矩形、一部分为三角形(高度比例：0.83、0.17)
-         *气泡的宽度是进度条宽度的3倍
+         * 气泡的宽度是进度条宽度的3倍
          * 三角箭头到图片的距离为进度条宽度的0.65
          */
         mImgTargetSize = mProgressPaintWidth * 2;
@@ -121,13 +146,14 @@ public class MyProgressBar extends View {
         mProgressBarY = mVerticalPadding + mProgressPaintWidth * 0.5f + mBubbleHeight + mImgMarginTop;
         mRectY = mProgressBarY - mProgressPaintWidth * 0.5f - mImgMarginTop - mTriangleHeight - mRectHeight * 0.5f;
         mTriangleY = mProgressBarY - mProgressPaintWidth * 0.5f - mImgMarginTop - mTriangleHeight;
+
+        mProgressImg = measureImgSize(mImgTargetSize);
     }
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         mWidth = MeasureSpec.getSize(widthMeasureSpec);
-        // setMeasuredDimension(mWidth, MeasureSpec.getSize(heightMeasureSpec));
         setMeasuredDimension(mWidth, mHeight);
     }
 
@@ -141,10 +167,10 @@ public class MyProgressBar extends View {
     private void drawProgress(Canvas canvas) {
         float padding = mHorizontalPadding + mRectWidth * 0.5f;
         //draw  progress bar background
-        mProgressPaint.setColor(Color.parseColor("#FFEFDB"));
+        mProgressPaint.setColor(mProgressBarBackgroundColor);
         canvas.drawLine(padding, mProgressBarY, mWidth - padding, mProgressBarY, mProgressPaint);
         //draw progress bar
-        mProgressPaint.setColor(Color.parseColor("#F86F41"));
+        mProgressPaint.setColor(mProgressBarColor);
         float realLength = getRealProgressLength(mProgress);
         mProgressBarX = padding + realLength;
         canvas.drawLine(padding, mProgressBarY, mProgressBarX, mProgressBarY, mProgressPaint);
@@ -239,5 +265,12 @@ public class MyProgressBar extends View {
         animator.start();
     }
 
+    /**
+     * dp to  px
+     */
+    private static int dp2px(Context context, float dpVal) {
+        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
+                dpVal, context.getResources().getDisplayMetrics());
+    }
 
 }
